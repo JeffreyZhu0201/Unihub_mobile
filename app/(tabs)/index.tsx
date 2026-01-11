@@ -1,98 +1,114 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { api, Notification, DingTask } from '@/services/api';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const router = useRouter();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [dings, setDings] = useState<DingTask[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const loadData = async () => {
+    try {
+      const [notifs, tasksResult] = await Promise.all([
+        api.getMyNotifications(),
+        api.getMyDings(),
+      ]);
+      setNotifications(notifs || []);
+      setDings(tasksResult.pending || []);
+    } catch (error) {
+      console.log(error);
+      // If unauthorized, redirect might be better handled in a global guard
+      // router.replace('/auth/login');
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  return (
+    <ScrollView 
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <View style={styles.header}>
+        <Text style={styles.greeting}>👋 Welcome Back</Text>
+        <Text style={styles.subGreeting}>Here are your updates</Text>
+      </View>
+
+      {/* Dings Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📍 Pending Check-ins</Text>
+        {dings.length === 0 ? (
+          <Text style={styles.emptyText}>No pending tasks. You're free!</Text>
+        ) : (
+          dings.map((ding) => (
+             <TouchableOpacity key={ding.ID} style={styles.card}>
+                <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>{ding.Title}</Text>
+                    <View style={styles.tag}>
+                        <Text style={styles.tagText}>{ding.Type === 'dorm_check' ? '查寝' : '签到'}</Text>
+                    </View>
+                </View>
+                <Text style={styles.cardTime}>Deadline: {new Date(ding.Deadline).toLocaleString()}</Text>
+             </TouchableOpacity>
+          ))
+        )}
+      </View>
+
+      {/* Notifications Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📢 Notifications</Text>
+        {notifications.length === 0 ? (
+          <Text style={styles.emptyText}>No new notifications</Text>
+        ) : (
+          notifications.map((notif) => (
+            <View key={notif.ID} style={styles.notifCard}>
+               <View style={{flexDirection: 'row', gap: 10}}>
+                   <Ionicons name="notifications-outline" size={24} color="#666" />
+                   <View style={{flex: 1}}>
+                       <Text style={styles.notifTitle}>{notif.Title}</Text>
+                       <Text style={styles.notifContent}>{notif.Content}</Text>
+                       <Text style={styles.notifTime}>{new Date(notif.CreatedAt).toLocaleDateString()}</Text>
+                   </View>
+               </View>
+            </View>
+          ))
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { padding: 20, paddingTop: 60, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+  greeting: { fontSize: 28, fontWeight: 'bold', color: '#111' },
+  subGreeting: { fontSize: 16, color: '#666', marginTop: 4 },
+  section: { padding: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15, color: '#333' },
+  emptyText: { color: '#999', fontStyle: 'italic' },
+  
+  card: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  cardTitle: { fontSize: 16, fontWeight: '600' },
+  cardTime: { fontSize: 12, color: '#666' },
+  tag: { backgroundColor: '#e0e7ff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  tagText: { color: '#4338ca', fontSize: 10, fontWeight: 'bold' },
+
+  notifCard: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#4F46E5' },
+  notifTitle: { fontSize: 15, fontWeight: '600', marginBottom: 4 },
+  notifContent: { fontSize: 14, color: '#444', marginBottom: 6 },
+  notifTime: { fontSize: 12, color: '#999' },
 });
