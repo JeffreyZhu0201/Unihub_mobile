@@ -14,8 +14,14 @@ export interface UserProfile {
   Email: string;
   Role: { Key: string; Name: string };
   StudentNo?: string;
-  DepartmentID?: number; // Add this
+  DepartmentID?: number;
+  Department?: Department; // 这里的 Department 可以保留，但我们主要使用新的接口返回
   CreatedAt?: string;
+}
+
+export interface OrgInfo {
+  department?: Department;
+  classes?: Class[];
 }
 
 export interface Notification {
@@ -84,6 +90,14 @@ export const api = {
     const headers = await getHeaders();
     const res = await fetch(`${API_BASE_URL}/user/profile`, { headers });
     if (!res.ok) throw new Error('Failed to fetch profile');
+    return res.json();
+  },
+
+  // 新增：获取详细组织信息
+  getUserOrgInfo: async (): Promise<OrgInfo> => {
+    const headers = await getHeaders();
+    const res = await fetch(`${API_BASE_URL}/user/org_info`, { headers });
+    if (!res.ok) throw new Error('Failed to fetch user org info');
     return res.json();
   },
 

@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Platform, UIManager, LayoutAnimation } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { api, UserProfile } from '@/services/api';
+import { api, UserProfile, OrgInfo } from '@/services/api'; // Import OrgInfo
 import { Ionicons } from '@expo/vector-icons';
+
+// Enable LayoutAnimation
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [orgInfo, setOrgInfo] = useState<OrgInfo | null>(null); // State for OrgInfo
   const [loading, setLoading] = useState(true);
+  const [loadingOrg, setLoadingOrg] = useState(false); // Loading state for Org section
+  const [expanded, setExpanded] = useState(false); // Dropdown toggle
 
   useEffect(() => {
     loadProfile();
@@ -19,18 +27,32 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
         setProfile(null);
+        setOrgInfo(null);
         setLoading(false);
         return;
       }
-      const data = await api.getProfile();
-      setProfile(data);
+      
+      const profileData = await api.getProfile();
+      if (profileData) setProfile(profileData);
+
     } catch (e) {
       console.log(e);
-      // 发生错误（如 Token 过期），视为未登录
       setProfile(null);
     } finally {
       setLoading(false);
     }
+  };
+  
+  const loadOrgInfo = async () => {
+      setLoadingOrg(true);
+      try {
+          const orgData = await api.getUserOrgInfo();
+          if (orgData) setOrgInfo(orgData);
+      } catch (e) {
+          console.log("Failed to load org info:", e);
+      } finally {
+          setLoadingOrg(false);
+      }
   };
 
   const handleLogout = async () => {
@@ -38,28 +60,30 @@ export default function ProfileScreen() {
     router.replace('/auth/login');
   };
 
+  const toggleExpand = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (!expanded) {
+        loadOrgInfo(); // Fetch when expanding
+    }
+    setExpanded(!expanded);
+  };
+
   if (loading) return <View style={styles.center}><ActivityIndicator color="#4F46E5" /></View>;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>{profile?.Nickname?.[0]?.toUpperCase() || '?'}</Text>
         </View>
         
-        {/* 未登录显示去登录/注册，登录显示用户名 */}
         {profile ? (
             <Text style={styles.name}>{profile.Nickname}</Text>
         ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <TouchableOpacity onPress={() => router.push('/auth/login')}>
-                    <Text style={[styles.name, styles.linkText]}>Login</Text>
-                </TouchableOpacity>
-                {/* <Text style={styles.name}>/</Text> */}
-                {/* <TouchableOpacity onPress={() => router.push('/auth/register')}>
-                    <Text style={[styles.name, styles.linkText]}>Register</Text>
-                </TouchableOpacity> */}
-            </View>
+             <TouchableOpacity onPress={() => router.push('/auth/login')}>
+                <Text style={[styles.name, styles.linkText]}>Login / Register</Text>
+            </TouchableOpacity>
         )}
 
         <View style={styles.roleTag}>
@@ -67,6 +91,67 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Organization Dropdown */}
+      {profile && (
+        <View style={styles.orgSectionContainer}>
+            <TouchableOpacity style={styles.orgHeader} onPress={toggleExpand} activeOpacity={0.7}>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                    <View style={[styles.iconBox, { backgroundColor: '#e0e7ff', marginRight: 0 }]}>
+                        <Ionicons name="school-outline" size={20} color="#4F46E5" />
+                    </View>
+                    <Text style={styles.orgTitle}>My Organizations</Text>
+                </View>
+                <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={20} color="#666" />
+            </TouchableOpacity>
+
+            {expanded && (
+                <View style={styles.orgContent}>
+                    {loadingOrg ? (
+                        <View style={{ padding: 20 }}>
+                            <ActivityIndicator size="small" color="#4F46E5" />
+                        </View>
+                    ) : (
+                        <>
+                            {/* Department Info */}
+                            <View style={styles.orgItem}>
+                                <Text style={styles.orgLabel}>Department</Text>
+                                {orgInfo?.department && orgInfo.department.ID !== 0 ? (
+                                    <View style={styles.deptCard}>
+                                        <Text style={styles.deptName}>{orgInfo.department.Name}</Text>
+                                        <Text style={styles.deptCode}>Code: {orgInfo.department.InviteCode}</Text>
+                                    </View>
+                                ) : (
+                                    <Text style={styles.emptyText}>Not joined any department</Text>
+                                )}
+                            </View>
+
+                            {/* Classes List */}
+                            <View style={styles.orgItem}>
+                                <Text style={styles.orgLabel}>Joined Classes</Text>
+                                {orgInfo?.classes && orgInfo.classes.length > 0 ? (
+                                    orgInfo.classes.map((cls) => (
+                                        <View key={cls.ID} style={styles.classRow}>
+                                            <View>
+                                                <Text style={styles.className}>{cls.Name}</Text>
+                                                <Text style={styles.classCode}>Code: {cls.InviteCode}</Text>
+                                            </View>
+                                            <View style={styles.tag}>
+                                                <Text style={styles.tagText}>Class</Text>
+                                            </View>
+                                        </View>
+                                    ))
+                                ) : (
+                                    <Text style={styles.emptyText}>No classes joined</Text>
+                                )}
+                            </View>
+                        </>
+                    )}
+                </View>
+            )}
+        </View>
+      )}
+
+      {/* Basic Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Basic Info</Text>
         
@@ -86,17 +171,6 @@ export default function ProfileScreen() {
             </View>
         </View>
 
-         {/* 仅在有部门或未登录时显示占位 */}
-         <View style={styles.infoRow}>
-            <View style={styles.iconBox}><Ionicons name="business-outline" size={20} color="#4F46E5" /></View>
-            <View>
-                <Text style={styles.label}>Department</Text>
-                <Text style={styles.value}>
-                    {profile?.DepartmentID ? `Dept ID: ${profile.DepartmentID}` : '-'}
-                </Text>
-            </View>
-         </View>
-
          <View style={styles.infoRow}>
             <View style={styles.iconBox}><Ionicons name="calendar-outline" size={20} color="#4F46E5" /></View>
             <View>
@@ -106,7 +180,6 @@ export default function ProfileScreen() {
          </View>
       </View>
 
-      {/* 仅登录状态显示退出按钮 */}
       {profile && (
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color="#ef4444" />
@@ -134,6 +207,23 @@ const styles = StyleSheet.create({
   iconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#eef2ff', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   label: { fontSize: 13, color: '#64748b', marginBottom: 2 },
   value: { fontSize: 16, fontWeight: '600', color: '#0f172a' },
+
+  // Org Styles
+  orgSectionContainer: { marginHorizontal: 20, marginTop: 20, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 4 },
+  orgHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
+  orgTitle: { fontSize: 16, fontWeight: '700', color: '#334155' },
+  orgContent: { padding: 16, paddingTop: 0, backgroundColor: '#fcfcfc', borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  orgItem: { marginTop: 16 },
+  orgLabel: { fontSize: 12, fontWeight: '700', color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase' },
+  deptCard: { backgroundColor: '#eef2ff', padding: 12, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#4F46E5' },
+  deptName: { fontSize: 15, fontWeight: '600', color: '#312e81' },
+  deptCode: { fontSize: 12, color: '#6366f1', marginTop: 2 },
+  classRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
+  className: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  classCode: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  tag: { backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  tagText: { fontSize: 10, color: '#6b7280', fontWeight: 'bold' },
+  emptyText: { fontSize: 13, color: '#9ca3af', fontStyle: 'italic' },
   
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 20, marginTop: 40, marginBottom: 40, backgroundColor: '#fef2f2', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#fee2e2' },
   logoutText: { color: '#ef4444', fontWeight: '700', fontSize: 16 },
