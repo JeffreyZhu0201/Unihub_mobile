@@ -16,10 +16,18 @@ export default function ProfileScreen() {
 
   const loadProfile = async () => {
     try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
       const data = await api.getProfile();
       setProfile(data);
     } catch (e) {
       console.log(e);
+      // 发生错误（如 Token 过期），视为未登录
+      setProfile(null);
     } finally {
       setLoading(false);
     }
@@ -36,11 +44,26 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>{profile?.Nickname?.[0]?.toUpperCase() || 'U'}</Text>
+          <Text style={styles.avatarText}>{profile?.Nickname?.[0]?.toUpperCase() || '?'}</Text>
         </View>
-        <Text style={styles.name}>{profile?.Nickname}</Text>
+        
+        {/* 未登录显示去登录/注册，登录显示用户名 */}
+        {profile ? (
+            <Text style={styles.name}>{profile.Nickname}</Text>
+        ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <TouchableOpacity onPress={() => router.push('/auth/login')}>
+                    <Text style={[styles.name, styles.linkText]}>Login</Text>
+                </TouchableOpacity>
+                {/* <Text style={styles.name}>/</Text> */}
+                {/* <TouchableOpacity onPress={() => router.push('/auth/register')}>
+                    <Text style={[styles.name, styles.linkText]}>Register</Text>
+                </TouchableOpacity> */}
+            </View>
+        )}
+
         <View style={styles.roleTag}>
-             <Text style={styles.roleText}>{profile?.Role?.Name || 'Student'}</Text>
+             <Text style={styles.roleText}>{profile ? (profile?.Role?.Name || 'Student') : '-'}</Text>
         </View>
       </View>
 
@@ -51,7 +74,7 @@ export default function ProfileScreen() {
             <View style={styles.iconBox}><Ionicons name="card-outline" size={20} color="#4F46E5" /></View>
             <View>
                 <Text style={styles.label}>Student No.</Text>
-                <Text style={styles.value}>{profile?.StudentNo || 'Not Set'}</Text>
+                <Text style={styles.value}>{profile?.StudentNo || '-'}</Text>
             </View>
         </View>
 
@@ -59,33 +82,37 @@ export default function ProfileScreen() {
             <View style={styles.iconBox}><Ionicons name="mail-outline" size={20} color="#4F46E5" /></View>
             <View>
                 <Text style={styles.label}>Email Address</Text>
-                <Text style={styles.value}>{profile?.Email}</Text>
+                <Text style={styles.value}>{profile?.Email || '-'}</Text>
             </View>
         </View>
 
-         {profile?.DepartmentID ? (
-            <View style={styles.infoRow}>
-                <View style={styles.iconBox}><Ionicons name="business-outline" size={20} color="#4F46E5" /></View>
-                <View>
-                    <Text style={styles.label}>Department</Text>
-                    <Text style={styles.value}>Dept ID: {profile.DepartmentID}</Text>
-                </View>
+         {/* 仅在有部门或未登录时显示占位 */}
+         <View style={styles.infoRow}>
+            <View style={styles.iconBox}><Ionicons name="business-outline" size={20} color="#4F46E5" /></View>
+            <View>
+                <Text style={styles.label}>Department</Text>
+                <Text style={styles.value}>
+                    {profile?.DepartmentID ? `Dept ID: ${profile.DepartmentID}` : '-'}
+                </Text>
             </View>
-         ) : null}
+         </View>
 
          <View style={styles.infoRow}>
             <View style={styles.iconBox}><Ionicons name="calendar-outline" size={20} color="#4F46E5" /></View>
             <View>
                 <Text style={styles.label}>Joined Since</Text>
-                <Text style={styles.value}>{profile?.CreatedAt ? new Date(profile.CreatedAt).toLocaleDateString() : 'N/A'}</Text>
+                <Text style={styles.value}>{profile?.CreatedAt ? new Date(profile.CreatedAt).toLocaleDateString() : '-'}</Text>
             </View>
          </View>
       </View>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-        <Text style={styles.logoutText}>Log Out</Text>
-      </TouchableOpacity>
+      {/* 仅登录状态显示退出按钮 */}
+      {profile && (
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+            <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }
@@ -97,6 +124,7 @@ const styles = StyleSheet.create({
   avatarContainer: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#4F46E5', justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#4F46E5', shadowOpacity: 0.4, shadowRadius: 8 },
   avatarText: { fontSize: 36, color: '#fff', fontWeight: 'bold' },
   name: { fontSize: 24, fontWeight: '700', color: '#1e293b' },
+  linkText: { color: '#4F46E5', textDecorationLine: 'underline' },
   roleTag: { marginTop: 8, backgroundColor: '#eff6ff', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#dbeafe' },
   roleText: { color: '#2563eb', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
   
