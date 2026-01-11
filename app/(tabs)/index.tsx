@@ -43,7 +43,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <Text style={styles.greeting}>👋 Welcome Back</Text>
+        <Text style={styles.greeting}>UniHub-Campus Assistance</Text>
         <Text style={styles.subGreeting}>Here are your updates</Text>
       </View>
 
@@ -54,14 +54,30 @@ export default function HomeScreen() {
           <Text style={styles.emptyText}>No pending tasks. You're free!</Text>
         ) : (
           dings.map((ding) => (
-             <TouchableOpacity key={ding.ID} style={styles.card}>
+             <TouchableOpacity 
+                key={ding.ID} 
+                style={styles.card}
+                onPress={() => router.push({
+                    pathname: '/checkin/[id]',
+                    params: { 
+                        id: ding.ID, 
+                        title: ding.Title, 
+                        type: ding.Type, 
+                        deadline: ding.Deadline 
+                    }
+                })}
+             >
                 <View style={styles.cardHeader}>
                     <Text style={styles.cardTitle}>{ding.Title}</Text>
                     <View style={styles.tag}>
                         <Text style={styles.tagText}>{ding.Type === 'dorm_check' ? '查寝' : '签到'}</Text>
                     </View>
                 </View>
-                <Text style={styles.cardTime}>Deadline: {new Date(ding.Deadline).toLocaleString()}</Text>
+                
+                <View style={styles.cardFooter}>
+                     <Ionicons name="time-outline" size={14} color="#666" />
+                     <Text style={styles.cardTime}>Deadline: {new Date(ding.Deadline).toLocaleString()}</Text>
+                </View>
              </TouchableOpacity>
           ))
         )}
@@ -106,6 +122,7 @@ const styles = StyleSheet.create({
   cardTime: { fontSize: 12, color: '#666' },
   tag: { backgroundColor: '#e0e7ff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   tagText: { color: '#4338ca', fontSize: 10, fontWeight: 'bold' },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
 
   notifCard: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#4F46E5' },
   notifTitle: { fontSize: 15, fontWeight: '600', marginBottom: 4 },

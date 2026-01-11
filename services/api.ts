@@ -117,26 +117,17 @@ export const api = {
     return res.json();
   },
 
-  // --- Leaves ---
-  getMyLeaves: async (): Promise<LeaveRequest[]> => {
-    const headers = await getHeaders();
-    const res = await fetch(`${API_BASE_URL}/leaves/mine`, { headers });
-    if (!res.ok) throw new Error('Failed to fetch leave history');
-    return res.json();
-  },
-
-  // --- Actions ---
+  // --- Join Org ---
   joinClass: async (inviteCode: string) => {
     const headers = await getHeaders();
     const res = await fetch(`${API_BASE_URL}/classes/join`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ invite_code: inviteCode }),
+        method: 'POST',
+        headers,
+        body: JSON.stringify({invite_code: inviteCode}),
     });
-    // Check for both 200 OK or 201 Created depending on backend
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Join failed');
+        const txt = await res.text();
+        throw new Error(txt || 'Failed to join class');
     }
     return res.json();
   },
@@ -144,25 +135,65 @@ export const api = {
   joinDept: async (inviteCode: string) => {
     const headers = await getHeaders();
     const res = await fetch(`${API_BASE_URL}/departments/join`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ invite_code: inviteCode }),
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ invite_code: inviteCode }),
     });
+
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Join failed');
+        // Backend returns JSON error usually, try to parse
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to join department');
     }
     return res.json();
   },
 
-  applyLeave: async (payload: { type: string; start_time: string; end_time: string; reason: string }) => {
+  // --- Leaves ---
+  applyLeave: async (payload: { type: string; reason: string; startTime: string; endTime: string }) => {
     const headers = await getHeaders();
+    const body = {
+        type: payload.type,
+        reason: payload.reason,
+        start_time: payload.startTime,
+        end_time: payload.endTime,
+    };
+    
+    console.log("Applying leave:", body); // Debug log
+
     const res = await fetch(`${API_BASE_URL}/leaves`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to apply leave');
+    }
+    return res.json();
+  },
+
+  getMyLeaves: async (): Promise<LeaveRequest[]> => {
+    const headers = await getHeaders();
+    const res = await fetch(`${API_BASE_URL}/leaves/mine`, { headers });
+    if (!res.ok) throw new Error('Failed to fetch leave history');
+    return res.json();
+  },
+
+  // --- Ding Actions ---
+  // 调用后端 POST /dings/:dingId 接口
+  performCheckIn: async (dingId: number) => {
+    const headers = await getHeaders();
+    // 假设路由配置为 POST /dings/:dingId
+    const res = await fetch(`${API_BASE_URL}/dings/${dingId}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error('Apply failed');
+    
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Check-in failed');
+    }
     return res.json();
   },
 };

@@ -11,18 +11,25 @@ export default function LeaveScreen() {
   const [isSick, setIsSick] = useState(false);
 
   const handleSubmit = async () => {
-    if (!reason) return Alert.alert('Error', 'Please provide a reason');
-    
+    // Validation
+    if (!reason.trim()) {
+        return Alert.alert('Validation Error', 'Please enter a reason for your leave.');
+    }
+    const daysInt = parseInt(days);
+    if (isNaN(daysInt) || daysInt <= 0) {
+        return Alert.alert('Validation Error', 'Please enter a valid duration (days).');
+    }
+
     // Construct simplified dates for demo. In real app use a DatePicker
     const now = new Date();
     const end = new Date();
-    end.setDate(now.getDate() + parseInt(days));
+    end.setDate(now.getDate() + daysInt);
 
     const payload = {
         type: isSick ? '病假' : '事假', // Updated to string to match backend struct
-        start_time: now.toISOString(),
-        end_time: end.toISOString(),
-        reason: reason
+        startTime: now.toISOString(),
+        endTime: end.toISOString(),
+        reason: reason.trim()
     };
 
     try {
@@ -31,8 +38,9 @@ export default function LeaveScreen() {
             { text: 'OK', onPress: () => router.push('/leaves/history') } // Optional: redirect to history on success
         ]);
         setReason('');
+        setDays('1');
     } catch (e: any) {
-        Alert.alert('Error', e.message);
+        Alert.alert('Submission Error', e.message);
     }
   };
 
