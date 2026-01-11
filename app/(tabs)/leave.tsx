@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Switch, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router'; // Add useRouter
+import { Ionicons } from '@expo/vector-icons'; // Add Icons
 import { api } from '@/services/api';
 
 export default function LeaveScreen() {
+  const router = useRouter(); // Initialize router
   const [reason, setReason] = useState('');
   const [days, setDays] = useState('1'); // Simplification for demo: duration in days
   const [isSick, setIsSick] = useState(false);
@@ -16,7 +19,7 @@ export default function LeaveScreen() {
     end.setDate(now.getDate() + parseInt(days));
 
     const payload = {
-        type: isSick ? 1 : 2, // 1 for Sick (Event), 2 for Personal (implied mapping)
+        type: isSick ? '病假' : '事假', // Updated to string to match backend struct
         start_time: now.toISOString(),
         end_time: end.toISOString(),
         reason: reason
@@ -24,7 +27,9 @@ export default function LeaveScreen() {
 
     try {
         await api.applyLeave(payload);
-        Alert.alert('Success', 'Leave request submitted for approval');
+        Alert.alert('Success', 'Leave request submitted for approval', [
+            { text: 'OK', onPress: () => router.push('/leaves/history') } // Optional: redirect to history on success
+        ]);
         setReason('');
     } catch (e: any) {
         Alert.alert('Error', e.message);
@@ -33,7 +38,17 @@ export default function LeaveScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.header}>Request Leave</Text>
+      {/* Header Row with History Button */}
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Request Leave</Text>
+        <TouchableOpacity 
+            style={styles.historyBtn} 
+            onPress={() => router.push('/leaves/history')}
+        >
+            <Ionicons name="time-outline" size={20} color="#4F46E5" />
+            <Text style={styles.historyText}>History</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Leave Type</Text>
@@ -75,7 +90,11 @@ export default function LeaveScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, paddingTop: 60, backgroundColor: '#fff' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 30 },
+  // Updated Header Styles
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
+  header: { fontSize: 24, fontWeight: 'bold' },
+  historyBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef2ff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 4 },
+  historyText: { fontSize: 16, color: '#4F46E5' },
   formGroup: { marginBottom: 24 },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#333' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16 },

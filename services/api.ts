@@ -25,6 +25,17 @@ export interface Notification {
   CreatedAt: string;
 }
 
+export interface LeaveRequest {
+  ID: number;
+  Type: string;
+  Reason: string;
+  StartTime: string;
+  EndTime: string;
+  Status: string;
+  CreatedAt: string;
+  AuditorID?: number;
+}
+
 export interface DingTask {
   ID: number;
   Title: string;
@@ -85,10 +96,18 @@ export const api = {
     return res.json();
   },
 
-  getMyDings: async (): Promise<DingResponse> => {
+  getMyDings: async (): Promise<DingTask[]> => {
     const headers = await getHeaders();
-    const res = await fetch(`${API_BASE_URL}/dings/mydings`, { headers }); // Match router.go path
+    const res = await fetch(`${API_BASE_URL}/dings/mydings`, { headers });
     if (!res.ok) throw new Error('Failed to fetch dings');
+    return res.json();
+  },
+
+  // --- Leaves ---
+  getMyLeaves: async (): Promise<LeaveRequest[]> => {
+    const headers = await getHeaders();
+    const res = await fetch(`${API_BASE_URL}/leaves/mine`, { headers });
+    if (!res.ok) throw new Error('Failed to fetch leave history');
     return res.json();
   },
 
@@ -122,7 +141,7 @@ export const api = {
     return res.json();
   },
 
-  applyLeave: async (payload: { type: number; start_time: string; end_time: string; reason: string }) => {
+  applyLeave: async (payload: { type: string; start_time: string; end_time: string; reason: string }) => {
     const headers = await getHeaders();
     const res = await fetch(`${API_BASE_URL}/leaves`, {
       method: 'POST',
