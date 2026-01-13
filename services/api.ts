@@ -2,10 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // For Android Emulator use 10.0.2.2, for iOS/Web use localhost
+const BASE_URL = "http://10.244.244.205:8080"
 const API_BASE_URL = Platform.select({
-  android: 'http://10.244.244.205:8080/api/v1',
-  ios: 'http://10.244.244.205:8080/api/v1',
-  default: 'http://10.244.244.205:8080/api/v1',
+  android: BASE_URL + '/api/v1',
+  ios: BASE_URL + '/api/v1',
+  default: BASE_URL + '/api/v1',
 });
 
 export interface UserProfile {
